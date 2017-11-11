@@ -150,6 +150,12 @@ thread_create(const char *name)
 	thread->t_did_reserve_buffers = false;
 
 	/* If you add to struct thread, be sure to initialize here */
+	thread->tparent = NULL;
+	thread->hasParent = false;
+	thread->childsJoin = 0;
+	thread->treturn = 0;
+	thread->sem_child = NULL;
+	thread->sem_parent = NULL;
 
 	return thread;
 }
@@ -523,6 +529,27 @@ thread_fork(const char *name,
 	/* Thread subsystem fields */
 	newthread->t_cpu = curthread->t_cpu;
 
+	curthread->childsJoin++;
+	newthread->tparent = curthread;
+	newthread->hasParent = true;
+	newthread->sem_parent = sem_create(name, 0);
+
+	if (newthread->sem_parent == NULL){
+		thread_destroy(newthread);
+		return -1;
+	}
+
+	newthread->sem_child = sem_create(name, 0);
+
+	if(newthread->sem_child == NULL){
+		thread_destroy(newthread);
+		sem_destroy(newthread->sem_parent);
+		return -1;
+	}
+
+	
+
+
 	/* Attach the new thread to its process */
 	if (proc == NULL) {
 		proc = curthread->t_proc;
@@ -803,6 +830,45 @@ thread_exit(void)
         splhigh();
 	thread_switch(S_ZOMBIE, NULL, NULL);
 	panic("braaaaaaaiiiiiiiiiiinssssss\n");
+}
+
+int
+thread_join(struct thread *thr, int *out){
+
+	struct thread *cur;
+	struct thread *parent;
+	parent = thr->tparent;
+
+	//is thread joinable
+	KASSERT(thr != NULL);
+
+	//does thread have parent
+	KASSERT(parent != NULL);
+
+	cur = curthread;
+
+	//make sure target thread and current aren't equal
+	KASSERT(thr != cur);
+
+	//make sure child semaphore is available
+	KASSERT(thr->sem_child != NULL);
+
+	//make sure parent semaphore is available
+	KASSERT(thr->sem_parent != NULL);
+
+	//wait until child thread exits
+	P(thr->sem_parent);
+
+	*out = thr->treturn;
+
+	//clean up
+	cur->childsJoin--;
+	thr->tparent = NULL;
+
+	//release child semaphore
+	V(thr->sem_parent);
+
+	return 0;
 }
 
 /*

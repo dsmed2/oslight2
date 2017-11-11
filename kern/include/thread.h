@@ -109,6 +109,12 @@ struct thread {
 	bool t_did_reserve_buffers;	/* reserve_buffers() in effect */
 
 	/* add more here as needed */
+	struct thread *tparent;
+	bool hasParent;
+	int childsJoin;
+	int treturn;
+	struct semaphore *sem_child;
+	struct semaphore *sem_parent;
 };
 
 /*
@@ -152,6 +158,8 @@ int thread_fork(const char *name, struct proc *proc,
  * Interrupts need not be disabled.
  */
 __DEAD void thread_exit(void);
+
+int thread_join(struct thread *thr, int *out);
 
 /*
  * Cause the current thread to yield to the next runnable thread, but

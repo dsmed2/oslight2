@@ -69,7 +69,6 @@ struct proc {
 
 	/* VFS */
 	struct vnode *p_cwd;		/* current working directory */
-	struct filetable *p_filetable;  /* table of open files */
 
 	/* add more material here as needed */
 };
